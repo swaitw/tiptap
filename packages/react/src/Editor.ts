@@ -1,7 +1,13 @@
-import React from 'react'
-import { Editor as CoreEditor } from '@tiptap/core'
-import { EditorContentProps, EditorContentState } from './EditorContent'
+import { Editor } from '@tiptap/core'
+import { ReactPortal } from 'react'
 
-export class Editor extends CoreEditor {
-  public contentComponent: React.Component<EditorContentProps, EditorContentState> | null = null
+import { ReactRenderer } from './ReactRenderer.js'
+
+export type EditorWithContentComponent = Editor & { contentComponent?: ContentComponent | null }
+export type ContentComponent = {
+  setRenderer(id: string, renderer: ReactRenderer): void;
+  removeRenderer(id: string): void;
+  subscribe: (callback: () => void) => () => void;
+  getSnapshot: () => Record<string, ReactPortal>;
+  getServerSnapshot: () => Record<string, ReactPortal>;
 }

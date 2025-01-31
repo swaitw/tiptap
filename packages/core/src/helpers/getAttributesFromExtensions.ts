@@ -1,20 +1,19 @@
-import splitExtensions from './splitExtensions'
-import getExtensionField from './getExtensionField'
+import { MarkConfig, NodeConfig } from '../index.js'
 import {
-  Extensions,
-  GlobalAttributes,
-  Attributes,
-  Attribute,
-  ExtensionAttribute,
   AnyConfig,
-} from '../types'
-import { NodeConfig, MarkConfig } from '..'
+  Attribute,
+  Attributes,
+  ExtensionAttribute,
+  Extensions,
+} from '../types.js'
+import { getExtensionField } from './getExtensionField.js'
+import { splitExtensions } from './splitExtensions.js'
 
 /**
  * Get a list of all extension attributes defined in `addAttribute` and `addGlobalAttribute`.
  * @param extensions List of extensions
  */
-export default function getAttributesFromExtensions(extensions: Extensions): ExtensionAttribute[] {
+export function getAttributesFromExtensions(extensions: Extensions): ExtensionAttribute[] {
   const extensionAttributes: ExtensionAttribute[] = []
   const { nodeExtensions, markExtensions } = splitExtensions(extensions)
   const nodeAndMarkExtensions = [...nodeExtensions, ...markExtensions]
@@ -24,12 +23,15 @@ export default function getAttributesFromExtensions(extensions: Extensions): Ext
     renderHTML: null,
     parseHTML: null,
     keepOnSplit: true,
+    isRequired: false,
   }
 
   extensions.forEach(extension => {
     const context = {
       name: extension.name,
       options: extension.options,
+      storage: extension.storage,
+      extensions: nodeAndMarkExtensions,
     }
 
     const addGlobalAttributes = getExtensionField<AnyConfig['addGlobalAttributes']>(
@@ -42,8 +44,7 @@ export default function getAttributesFromExtensions(extensions: Extensions): Ext
       return
     }
 
-    // TODO: remove `as GlobalAttributes`
-    const globalAttributes = addGlobalAttributes() as GlobalAttributes
+    const globalAttributes = addGlobalAttributes()
 
     globalAttributes.forEach(globalAttribute => {
       globalAttribute.types.forEach(type => {
@@ -67,6 +68,7 @@ export default function getAttributesFromExtensions(extensions: Extensions): Ext
     const context = {
       name: extension.name,
       options: extension.options,
+      storage: extension.storage,
     }
 
     const addAttributes = getExtensionField<NodeConfig['addAttributes'] | MarkConfig['addAttributes']>(
@@ -85,13 +87,23 @@ export default function getAttributesFromExtensions(extensions: Extensions): Ext
     Object
       .entries(attributes)
       .forEach(([name, attribute]) => {
+        const mergedAttr = {
+          ...defaultAttribute,
+          ...attribute,
+        }
+
+        if (typeof mergedAttr?.default === 'function') {
+          mergedAttr.default = mergedAttr.default()
+        }
+
+        if (mergedAttr?.isRequired && mergedAttr?.default === undefined) {
+          delete mergedAttr.default
+        }
+
         extensionAttributes.push({
           type: extension.name,
           name,
-          attribute: {
-            ...defaultAttribute,
-            ...attribute,
-          },
+          attribute: mergedAttr,
         })
       })
   })

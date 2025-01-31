@@ -1,27 +1,39 @@
-import { Command, Node, mergeAttributes } from '@tiptap/core'
+import { mergeAttributes, Node } from '@tiptap/core'
 
 export interface ParagraphOptions {
+  /**
+   * The HTML attributes for a paragraph node.
+   * @default {}
+   * @example { class: 'foo' }
+   */
   HTMLAttributes: Record<string, any>,
 }
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     paragraph: {
       /**
        * Toggle a paragraph
+       * @example editor.commands.toggleParagraph()
        */
-      setParagraph: () => Command,
+      setParagraph: () => ReturnType,
     }
   }
 }
 
+/**
+ * This extension allows you to create paragraphs.
+ * @see https://www.tiptap.dev/api/nodes/paragraph
+ */
 export const Paragraph = Node.create<ParagraphOptions>({
   name: 'paragraph',
 
   priority: 1000,
 
-  defaultOptions: {
-    HTMLAttributes: {},
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    }
   },
 
   group: 'block',
@@ -41,7 +53,7 @@ export const Paragraph = Node.create<ParagraphOptions>({
   addCommands() {
     return {
       setParagraph: () => ({ commands }) => {
-        return commands.toggleNode('paragraph', 'paragraph')
+        return commands.setNode(this.name)
       },
     }
   },

@@ -1,29 +1,89 @@
-import { NodeType } from 'prosemirror-model'
-import { Command, RawCommands } from '../types'
-import getNodeType from '../helpers/getNodeType'
-import findParentNode from '../helpers/findParentNode'
-import isList from '../helpers/isList'
+import { NodeType } from '@tiptap/pm/model'
+import { Transaction } from '@tiptap/pm/state'
+import { canJoin } from '@tiptap/pm/transform'
+
+import { findParentNode } from '../helpers/findParentNode.js'
+import { getNodeType } from '../helpers/getNodeType.js'
+import { isList } from '../helpers/isList.js'
+import { RawCommands } from '../types.js'
+
+const joinListBackwards = (tr: Transaction, listType: NodeType): boolean => {
+  const list = findParentNode(node => node.type === listType)(tr.selection)
+
+  if (!list) {
+    return true
+  }
+
+  const before = tr.doc.resolve(Math.max(0, list.pos - 1)).before(list.depth)
+
+  if (before === undefined) {
+    return true
+  }
+
+  const nodeBefore = tr.doc.nodeAt(before)
+  const canJoinBackwards = list.node.type === nodeBefore?.type && canJoin(tr.doc, list.pos)
+
+  if (!canJoinBackwards) {
+    return true
+  }
+
+  tr.join(list.pos)
+
+  return true
+}
+
+const joinListForwards = (tr: Transaction, listType: NodeType): boolean => {
+  const list = findParentNode(node => node.type === listType)(tr.selection)
+
+  if (!list) {
+    return true
+  }
+
+  const after = tr.doc.resolve(list.start).after(list.depth)
+
+  if (after === undefined) {
+    return true
+  }
+
+  const nodeAfter = tr.doc.nodeAt(after)
+  const canJoinForwards = list.node.type === nodeAfter?.type && canJoin(tr.doc, after)
+
+  if (!canJoinForwards) {
+    return true
+  }
+
+  tr.join(after)
+
+  return true
+}
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     toggleList: {
       /**
        * Toggle between different list types.
+       * @param listTypeOrName The type or name of the list.
+       * @param itemTypeOrName The type or name of the list item.
+       * @param keepMarks Keep marks when toggling.
+       * @param attributes Attributes for the new list.
+       * @example editor.commands.toggleList('bulletList', 'listItem')
        */
-      toggleList: (listTypeOrName: string | NodeType, itemTypeOrName: string | NodeType) => Command,
+      toggleList: (listTypeOrName: string | NodeType, itemTypeOrName: string | NodeType, keepMarks?: boolean, attributes?: Record<string, any>) => ReturnType;
     }
   }
 }
 
-export const toggleList: RawCommands['toggleList'] = (listTypeOrName, itemTypeOrName) => ({
+export const toggleList: RawCommands['toggleList'] = (listTypeOrName, itemTypeOrName, keepMarks, attributes = {}) => ({
   editor, tr, state, dispatch, chain, commands, can,
 }) => {
-  const { extensions } = editor.extensionManager
+  const { extensions, splittableMarks } = editor.extensionManager
   const listType = getNodeType(listTypeOrName, state.schema)
   const itemType = getNodeType(itemTypeOrName, state.schema)
-  const { selection } = state
+  const { selection, storedMarks } = state
   const { $from, $to } = selection
   const range = $from.blockRange($to)
+
+  const marks = storedMarks || (selection.$to.parentOffset && selection.$from.marks())
 
   if (!range) {
     return false
@@ -40,24 +100,58 @@ export const toggleList: RawCommands['toggleList'] = (listTypeOrName, itemTypeOr
     // change list type
     if (
       isList(parentList.node.type.name, extensions)
-      && listType.validContent(parentList.node.content)
-      && dispatch
+        && listType.validContent(parentList.node.content)
+        && dispatch
     ) {
-      tr.setNodeMarkup(parentList.pos, listType)
+      return chain()
+        .command(() => {
+          tr.setNodeMarkup(parentList.pos, listType)
 
-      return true
+          return true
+        })
+        .command(() => joinListBackwards(tr, listType))
+        .command(() => joinListForwards(tr, listType))
+        .run()
     }
   }
+  if (!keepMarks || !marks || !dispatch) {
 
-  const canWrapInList = can().wrapInList(listType)
-
-  // try to convert node to paragraph if needed
-  if (!canWrapInList) {
     return chain()
-      .clearNodes()
-      .wrapInList(listType)
+      // try to convert node to default node if needed
+      .command(() => {
+        const canWrapInList = can().wrapInList(listType, attributes)
+
+        if (canWrapInList) {
+          return true
+        }
+
+        return commands.clearNodes()
+      })
+      .wrapInList(listType, attributes)
+      .command(() => joinListBackwards(tr, listType))
+      .command(() => joinListForwards(tr, listType))
       .run()
   }
 
-  return commands.wrapInList(listType)
+  return (
+    chain()
+    // try to convert node to default node if needed
+      .command(() => {
+        const canWrapInList = can().wrapInList(listType, attributes)
+
+        const filteredMarks = marks.filter(mark => splittableMarks.includes(mark.type.name))
+
+        tr.ensureMarks(filteredMarks)
+
+        if (canWrapInList) {
+          return true
+        }
+
+        return commands.clearNodes()
+      })
+      .wrapInList(listType, attributes)
+      .command(() => joinListBackwards(tr, listType))
+      .command(() => joinListForwards(tr, listType))
+      .run()
+  )
 }

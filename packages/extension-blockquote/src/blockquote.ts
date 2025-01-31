@@ -1,40 +1,53 @@
-import { Command, Node, mergeAttributes } from '@tiptap/core'
-import { wrappingInputRule } from 'prosemirror-inputrules'
+import { mergeAttributes, Node, wrappingInputRule } from '@tiptap/core'
 
 export interface BlockquoteOptions {
+  /**
+   * HTML attributes to add to the blockquote element
+   * @default {}
+   * @example { class: 'foo' }
+   */
   HTMLAttributes: Record<string, any>,
 }
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     blockQuote: {
       /**
        * Set a blockquote node
        */
-      setBlockquote: () => Command,
+      setBlockquote: () => ReturnType,
       /**
        * Toggle a blockquote node
        */
-      toggleBlockquote: () => Command,
+      toggleBlockquote: () => ReturnType,
       /**
        * Unset a blockquote node
        */
-      unsetBlockquote: () => Command,
+      unsetBlockquote: () => ReturnType,
     }
   }
 }
 
-export const inputRegex = /^\s*>\s$/gm
+/**
+ * Matches a blockquote to a `>` as input.
+ */
+export const inputRegex = /^\s*>\s$/
 
+/**
+ * This extension allows you to create blockquotes.
+ * @see https://tiptap.dev/api/nodes/blockquote
+ */
 export const Blockquote = Node.create<BlockquoteOptions>({
 
   name: 'blockquote',
 
-  defaultOptions: {
-    HTMLAttributes: {},
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    }
   },
 
-  content: 'block*',
+  content: 'block+',
 
   group: 'block',
 
@@ -53,13 +66,13 @@ export const Blockquote = Node.create<BlockquoteOptions>({
   addCommands() {
     return {
       setBlockquote: () => ({ commands }) => {
-        return commands.wrapIn('blockquote')
+        return commands.wrapIn(this.name)
       },
       toggleBlockquote: () => ({ commands }) => {
-        return commands.toggleWrap('blockquote')
+        return commands.toggleWrap(this.name)
       },
       unsetBlockquote: () => ({ commands }) => {
-        return commands.lift('blockquote')
+        return commands.lift(this.name)
       },
     }
   },
@@ -72,7 +85,10 @@ export const Blockquote = Node.create<BlockquoteOptions>({
 
   addInputRules() {
     return [
-      wrappingInputRule(inputRegex, this.type),
+      wrappingInputRule({
+        find: inputRegex,
+        type: this.type,
+      }),
     ]
   },
 })

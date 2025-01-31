@@ -1,17 +1,25 @@
-import { selectAll as originalSelectAll } from 'prosemirror-commands'
-import { Command, RawCommands } from '../types'
+import { AllSelection } from '@tiptap/pm/state'
+
+import { RawCommands } from '../types.js'
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     selectAll: {
       /**
        * Select the whole document.
+       * @example editor.commands.selectAll()
        */
-      selectAll: () => Command,
+      selectAll: () => ReturnType,
     }
   }
 }
 
-export const selectAll: RawCommands['selectAll'] = () => ({ state, dispatch }) => {
-  return originalSelectAll(state, dispatch)
+export const selectAll: RawCommands['selectAll'] = () => ({ tr, dispatch }) => {
+  if (dispatch) {
+    const selection = new AllSelection(tr.doc)
+
+    tr.setSelection(selection)
+  }
+
+  return true
 }

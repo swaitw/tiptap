@@ -1,23 +1,12 @@
-import { canSplit } from 'prosemirror-transform'
-import { ContentMatch } from 'prosemirror-model'
-import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state'
-import { Command, RawCommands } from '../types'
-import getSplittedAttributes from '../helpers/getSplittedAttributes'
+import { EditorState, NodeSelection, TextSelection } from '@tiptap/pm/state'
+import { canSplit } from '@tiptap/pm/transform'
 
-function defaultBlockAt(match: ContentMatch) {
-  for (let i = 0; i < match.edgeCount; i += 1) {
-    const { type } = match.edge(i)
-
-    if (type.isTextblock && !type.hasRequiredAttrs()) {
-      return type
-    }
-  }
-  return null
-}
+import { defaultBlockAt } from '../helpers/defaultBlockAt.js'
+import { getSplittedAttributes } from '../helpers/getSplittedAttributes.js'
+import { RawCommands } from '../types.js'
 
 function ensureMarks(state: EditorState, splittableMarks?: string[]) {
-  const marks = state.storedMarks
-    || (state.selection.$to.parentOffset && state.selection.$from.marks())
+  const marks = state.storedMarks || (state.selection.$to.parentOffset && state.selection.$from.marks())
 
   if (marks) {
     const filteredMarks = marks.filter(mark => splittableMarks?.includes(mark.type.name))
@@ -27,21 +16,21 @@ function ensureMarks(state: EditorState, splittableMarks?: string[]) {
 }
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     splitBlock: {
       /**
        * Forks a new node from an existing node.
+       * @param options.keepMarks Keep marks from the previous node.
+       * @example editor.commands.splitBlock()
+       * @example editor.commands.splitBlock({ keepMarks: true })
        */
-      splitBlock: (options?: { keepMarks?: boolean }) => Command,
+      splitBlock: (options?: { keepMarks?: boolean }) => ReturnType
     }
   }
 }
 
 export const splitBlock: RawCommands['splitBlock'] = ({ keepMarks = true } = {}) => ({
-  tr,
-  state,
-  dispatch,
-  editor,
+  tr, state, dispatch, editor,
 }) => {
   const { selection, doc } = tr
   const { $from, $to } = selection
@@ -72,53 +61,52 @@ export const splitBlock: RawCommands['splitBlock'] = ({ keepMarks = true } = {})
     return false
   }
 
-  if (dispatch) {
-    const atEnd = $to.parentOffset === $to.parent.content.size
+  const atEnd = $to.parentOffset === $to.parent.content.size
 
-    if (selection instanceof TextSelection) {
-      tr.deleteSelection()
-    }
+  const deflt = $from.depth === 0
+    ? undefined
+    : defaultBlockAt($from.node(-1).contentMatchAt($from.indexAfter(-1)))
 
-    const deflt = $from.depth === 0
-      ? undefined
-      : defaultBlockAt($from.node(-1).contentMatchAt($from.indexAfter(-1)))
-
-    let types = atEnd && deflt
-      ? [{
+  let types = atEnd && deflt
+    ? [
+      {
         type: deflt,
         attrs: newAttributes,
-      }]
-      : undefined
+      },
+    ]
+    : undefined
 
-    let can = canSplit(tr.doc, tr.mapping.map($from.pos), 1, types)
+  let can = canSplit(tr.doc, tr.mapping.map($from.pos), 1, types)
 
-    if (
-      !types
+  if (
+    !types
       && !can
       && canSplit(tr.doc, tr.mapping.map($from.pos), 1, deflt ? [{ type: deflt }] : undefined)
-    ) {
-      can = true
-      types = deflt
-        ? [{
+  ) {
+    can = true
+    types = deflt
+      ? [
+        {
           type: deflt,
           attrs: newAttributes,
-        }]
-        : undefined
-    }
+        },
+      ]
+      : undefined
+  }
 
+  if (dispatch) {
     if (can) {
+      if (selection instanceof TextSelection) {
+        tr.deleteSelection()
+      }
+
       tr.split(tr.mapping.map($from.pos), 1, types)
 
-      if (
-        deflt
-        && !atEnd
-        && !$from.parentOffset
-        && $from.parent.type !== deflt
-      ) {
+      if (deflt && !atEnd && !$from.parentOffset && $from.parent.type !== deflt) {
         const first = tr.mapping.map($from.before())
         const $first = tr.doc.resolve(first)
 
-        if ($from.parent.canReplaceWith($first.index(), $first.index() + 1, deflt)) {
+        if ($from.node(-1).canReplaceWith($first.index(), $first.index() + 1, deflt)) {
           tr.setNodeMarkup(tr.mapping.map($from.before()), deflt)
         }
       }
@@ -131,5 +119,5 @@ export const splitBlock: RawCommands['splitBlock'] = ({ keepMarks = true } = {})
     tr.scrollIntoView()
   }
 
-  return true
+  return can
 }

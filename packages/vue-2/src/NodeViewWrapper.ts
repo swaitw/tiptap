@@ -1,11 +1,11 @@
-import Vue, { Component } from 'vue'
+import Vue, { Component, CreateElement } from 'vue'
 
 export interface NodeViewWrapperInterface extends Vue {
   as: string,
   decorationClasses: {
     value: string,
   },
-  onDragStart: Function,
+  onDragStart: () => void,
 }
 
 export const NodeViewWrapper: Component = {
@@ -18,9 +18,10 @@ export const NodeViewWrapper: Component = {
 
   inject: ['onDragStart', 'decorationClasses'],
 
-  render(this: NodeViewWrapperInterface, createElement) {
+  render(this: NodeViewWrapperInterface, createElement: CreateElement) {
     return createElement(
-      this.as, {
+      this.as,
+      {
         class: this.decorationClasses.value,
         style: {
           whiteSpace: 'normal',

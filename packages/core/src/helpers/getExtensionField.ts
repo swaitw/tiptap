@@ -1,9 +1,16 @@
-import { AnyExtension, RemoveThis } from '../types'
+import { AnyExtension, MaybeThisParameterType, RemoveThis } from '../types.js'
 
-export default function getExtensionField<T = any>(
+/**
+ * Returns a field from an extension
+ * @param extension The Tiptap extension
+ * @param field The field, for example `renderHTML` or `priority`
+ * @param context The context object that should be passed as `this` into the function
+ * @returns The field value
+ */
+export function getExtensionField<T = any>(
   extension: AnyExtension,
   field: string,
-  context: Record<string, any> = {},
+  context?: Omit<MaybeThisParameterType<T>, 'parent'>,
 ): RemoveThis<T> {
 
   if (extension.config[field] === undefined && extension.parent) {

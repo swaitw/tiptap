@@ -1,14 +1,41 @@
-import { Node, mergeAttributes } from '@tiptap/core'
+import { mergeAttributes, Node } from '@tiptap/core'
 
 export interface ListItemOptions {
+  /**
+   * The HTML attributes for a list item node.
+   * @default {}
+   * @example { class: 'foo' }
+   */
   HTMLAttributes: Record<string, any>,
+
+  /**
+   * The node type for bulletList nodes
+   * @default 'bulletList'
+   * @example 'myCustomBulletList'
+   */
+  bulletListTypeName: string
+
+  /**
+   * The node type for orderedList nodes
+   * @default 'orderedList'
+   * @example 'myCustomOrderedList'
+   */
+  orderedListTypeName: string
 }
 
+/**
+ * This extension allows you to create list items.
+ * @see https://www.tiptap.dev/api/nodes/list-item
+ */
 export const ListItem = Node.create<ListItemOptions>({
   name: 'listItem',
 
-  defaultOptions: {
-    HTMLAttributes: {},
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+      bulletListTypeName: 'bulletList',
+      orderedListTypeName: 'orderedList',
+    }
   },
 
   content: 'paragraph block*',
@@ -29,9 +56,9 @@ export const ListItem = Node.create<ListItemOptions>({
 
   addKeyboardShortcuts() {
     return {
-      Enter: () => this.editor.commands.splitListItem('listItem'),
-      Tab: () => this.editor.commands.sinkListItem('listItem'),
-      'Shift-Tab': () => this.editor.commands.liftListItem('listItem'),
+      Enter: () => this.editor.commands.splitListItem(this.name),
+      Tab: () => this.editor.commands.sinkListItem(this.name),
+      'Shift-Tab': () => this.editor.commands.liftListItem(this.name),
     }
   },
 })

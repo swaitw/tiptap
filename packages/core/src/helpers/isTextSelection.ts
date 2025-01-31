@@ -1,6 +1,5 @@
-import { TextSelection } from 'prosemirror-state'
-import isObject from '../utilities/isObject'
+import { TextSelection } from '@tiptap/pm/state'
 
-export default function isTextSelection(value: unknown): value is TextSelection {
-  return isObject(value) && value instanceof TextSelection
+export function isTextSelection(value: unknown): value is TextSelection {
+  return value instanceof TextSelection
 }

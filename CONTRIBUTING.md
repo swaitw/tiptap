@@ -2,7 +2,7 @@
 
 Contributions are **welcome** and will be fully **credited**.
 
-Please read and understand the contribution guide before creating an issue or pull request.
+Please read and understand the [contribution guide](https://www.tiptap.dev/overview/contributing/) before creating an issue or pull request.
 
 ## Etiquette
 
@@ -35,6 +35,11 @@ Before submitting a pull request:
 
 - Check the codebase to ensure that your feature doesn't already exist.
 - Check the pull requests to ensure that another person hasn't already submitted the feature or fix.
+
+Before committing:
+
+- Make sure to run the tests and linter before committing your changes.
+- If you are making changes to one of the packages, make sure to **always** include a [changeset](https://github.com/changesets/changesets) in your PR describing **what changed** with a **description** of the change. Those are responsible for changelog creation
 
 ## Requirements
 

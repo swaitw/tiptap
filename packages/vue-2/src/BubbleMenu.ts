@@ -1,23 +1,40 @@
-import Vue, { Component, PropType } from 'vue'
-import { BubbleMenuPlugin, BubbleMenuPluginKey, BubbleMenuPluginProps } from '@tiptap/extension-bubble-menu'
+import { BubbleMenuPlugin, BubbleMenuPluginProps } from '@tiptap/extension-bubble-menu'
+import Vue, { Component, CreateElement, PropType } from 'vue'
 
 export interface BubbleMenuInterface extends Vue {
-  tippyOptions: BubbleMenuPluginProps['tippyOptions'],
+  pluginKey: BubbleMenuPluginProps['pluginKey'],
   editor: BubbleMenuPluginProps['editor'],
+  tippyOptions: BubbleMenuPluginProps['tippyOptions'],
+  updateDelay: BubbleMenuPluginProps['updateDelay'],
+  shouldShow: BubbleMenuPluginProps['shouldShow'],
 }
 
 export const BubbleMenu: Component = {
   name: 'BubbleMenu',
 
   props: {
+    pluginKey: {
+      type: [String, Object as PropType<Exclude<BubbleMenuPluginProps['pluginKey'], string>>],
+      default: 'bubbleMenu',
+    },
+
     editor: {
       type: Object as PropType<BubbleMenuPluginProps['editor']>,
       required: true,
     },
 
+    updateDelay: {
+      type: Number as PropType<BubbleMenuPluginProps['updateDelay']>,
+    },
+
     tippyOptions: {
       type: Object as PropType<BubbleMenuPluginProps['tippyOptions']>,
       default: () => ({}),
+    },
+
+    shouldShow: {
+      type: Function as PropType<Exclude<BubbleMenuPluginProps['shouldShow'], null>>,
+      default: null,
     },
   },
 
@@ -31,8 +48,11 @@ export const BubbleMenu: Component = {
 
         this.$nextTick(() => {
           editor.registerPlugin(BubbleMenuPlugin({
+            updateDelay: this.updateDelay,
             editor,
             element: this.$el as HTMLElement,
+            pluginKey: this.pluginKey,
+            shouldShow: this.shouldShow,
             tippyOptions: this.tippyOptions,
           }))
         })
@@ -40,11 +60,11 @@ export const BubbleMenu: Component = {
     },
   },
 
-  render(this: BubbleMenuInterface, createElement) {
+  render(this: BubbleMenuInterface, createElement: CreateElement) {
     return createElement('div', { style: { visibility: 'hidden' } }, this.$slots.default)
   },
 
   beforeDestroy(this: BubbleMenuInterface) {
-    this.editor.unregisterPlugin(BubbleMenuPluginKey)
+    this.editor.unregisterPlugin(this.pluginKey)
   },
 }

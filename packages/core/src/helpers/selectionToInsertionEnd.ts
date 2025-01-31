@@ -1,8 +1,8 @@
-import { Selection, Transaction } from 'prosemirror-state'
-import { ReplaceStep, ReplaceAroundStep } from 'prosemirror-transform'
+import { Selection, Transaction } from '@tiptap/pm/state'
+import { ReplaceAroundStep, ReplaceStep } from '@tiptap/pm/transform'
 
 // source: https://github.com/ProseMirror/prosemirror-state/blob/master/src/selection.js#L466
-export default function selectionToInsertionEnd(tr: Transaction, startLen: number, bias: number) {
+export function selectionToInsertionEnd(tr: Transaction, startLen: number, bias: number) {
   const last = tr.steps.length - 1
 
   if (last < startLen) {

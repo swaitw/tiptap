@@ -1,12 +1,13 @@
-import { Command, RawCommands } from '../types'
+import { RawCommands } from '../types.js'
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     enter: {
       /**
        * Trigger enter.
+       * @example editor.commands.enter()
        */
-      enter: () => Command,
+      enter: () => ReturnType,
     }
   }
 }

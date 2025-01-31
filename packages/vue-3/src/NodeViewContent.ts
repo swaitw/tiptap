@@ -1,6 +1,8 @@
-import { h, defineComponent } from 'vue'
+import { defineComponent, h } from 'vue'
 
 export const NodeViewContent = defineComponent({
+  name: 'NodeViewContent',
+
   props: {
     as: {
       type: String,
@@ -9,13 +11,11 @@ export const NodeViewContent = defineComponent({
   },
 
   render() {
-    return h(
-      this.as, {
-        style: {
-          whiteSpace: 'pre-wrap',
-        },
-        'data-node-view-content': '',
+    return h(this.as, {
+      style: {
+        whiteSpace: 'pre-wrap',
       },
-    )
+      'data-node-view-content': '',
+    })
   },
 })

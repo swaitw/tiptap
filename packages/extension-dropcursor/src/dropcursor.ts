@@ -1,19 +1,44 @@
 import { Extension } from '@tiptap/core'
-import { dropCursor } from 'prosemirror-dropcursor'
+import { dropCursor } from '@tiptap/pm/dropcursor'
 
 export interface DropcursorOptions {
-  color: string | null,
-  width: number | null,
-  class: string | null,
+  /**
+   * The color of the drop cursor
+   * @default 'currentColor'
+   * @example 'red'
+   */
+  color: string | undefined,
+
+  /**
+   * The width of the drop cursor
+   * @default 1
+   * @example 2
+  */
+  width: number | undefined,
+
+  /**
+   * The class of the drop cursor
+   * @default undefined
+   * @example 'drop-cursor'
+  */
+  class: string | undefined,
 }
 
+/**
+ * This extension allows you to add a drop cursor to your editor.
+ * A drop cursor is a line that appears when you drag and drop content
+ * inbetween nodes.
+ * @see https://tiptap.dev/api/extensions/dropcursor
+ */
 export const Dropcursor = Extension.create<DropcursorOptions>({
   name: 'dropCursor',
 
-  defaultOptions: {
-    color: 'black',
-    width: 1,
-    class: null,
+  addOptions() {
+    return {
+      color: 'currentColor',
+      width: 1,
+      class: undefined,
+    }
   },
 
   addProseMirrorPlugins() {

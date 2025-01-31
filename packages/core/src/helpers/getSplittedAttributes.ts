@@ -1,6 +1,13 @@
-import { ExtensionAttribute } from '../types'
+import { ExtensionAttribute } from '../types.js'
 
-export default function getSplittedAttributes(
+/**
+ * Return attributes of an extension that should be splitted by keepOnSplit flag
+ * @param extensionAttributes Array of extension attributes
+ * @param typeName The type of the extension
+ * @param attributes The attributes of the extension
+ * @returns The splitted attributes
+ */
+export function getSplittedAttributes(
   extensionAttributes: ExtensionAttribute[],
   typeName: string,
   attributes: Record<string, any>,

@@ -1,13 +1,25 @@
-import { Node, mergeAttributes } from '@tiptap/core'
+import { mergeAttributes, Node } from '@tiptap/core'
 
 export interface TableHeaderOptions {
+  /**
+   * The HTML attributes for a table header node.
+   * @default {}
+   * @example { class: 'foo' }
+   */
   HTMLAttributes: Record<string, any>,
 }
+
+/**
+ * This extension allows you to create table headers.
+ * @see https://www.tiptap.dev/api/nodes/table-header
+ */
 export const TableHeader = Node.create<TableHeaderOptions>({
   name: 'tableHeader',
 
-  defaultOptions: {
-    HTMLAttributes: {},
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    }
   },
 
   content: 'block+',
@@ -25,12 +37,10 @@ export const TableHeader = Node.create<TableHeaderOptions>({
         parseHTML: element => {
           const colwidth = element.getAttribute('colwidth')
           const value = colwidth
-            ? [parseInt(colwidth, 10)]
+            ? colwidth.split(',').map(width => parseInt(width, 10))
             : null
 
-          return {
-            colwidth: value,
-          }
+          return value
         },
       },
     }

@@ -1,5 +1,7 @@
 import React from 'react'
 
+import { useReactNodeView } from './useReactNodeView.js'
+
 export interface NodeViewContentProps {
   [key: string]: any,
   as?: React.ElementType,
@@ -7,14 +9,17 @@ export interface NodeViewContentProps {
 
 export const NodeViewContent: React.FC<NodeViewContentProps> = props => {
   const Tag = props.as || 'div'
+  const { nodeViewContentRef } = useReactNodeView()
 
   return (
+    // @ts-ignore
     <Tag
       {...props}
+      ref={nodeViewContentRef}
       data-node-view-content=""
       style={{
-        ...props.style,
         whiteSpace: 'pre-wrap',
+        ...props.style,
       }}
     />
   )

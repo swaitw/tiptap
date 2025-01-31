@@ -1,23 +1,38 @@
-import lowlight from 'lowlight/lib/core'
 import CodeBlock, { CodeBlockOptions } from '@tiptap/extension-code-block'
-import { LowlightPlugin } from './lowlight-plugin'
+
+import { LowlightPlugin } from './lowlight-plugin.js'
 
 export interface CodeBlockLowlightOptions extends CodeBlockOptions {
+  /**
+   * The lowlight instance.
+   */
   lowlight: any,
 }
 
+/**
+ * This extension allows you to highlight code blocks with lowlight.
+ * @see https://tiptap.dev/api/nodes/code-block-lowlight
+ */
 export const CodeBlockLowlight = CodeBlock.extend<CodeBlockLowlightOptions>({
-  defaultOptions: {
-    ...CodeBlock.options,
-    lowlight,
+  addOptions() {
+    return {
+      ...this.parent?.(),
+      lowlight: {},
+      languageClassPrefix: 'language-',
+      exitOnTripleEnter: true,
+      exitOnArrowDown: true,
+      defaultLanguage: null,
+      HTMLAttributes: {},
+    }
   },
 
   addProseMirrorPlugins() {
     return [
       ...this.parent?.() || [],
       LowlightPlugin({
-        name: 'codeBlock',
+        name: this.name,
         lowlight: this.options.lowlight,
+        defaultLanguage: this.options.defaultLanguage,
       }),
     ]
   },
