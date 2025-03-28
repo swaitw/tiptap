@@ -1,13 +1,11 @@
-import { MarkType, NodeType, Schema } from 'prosemirror-model'
+import { MarkType, NodeType, Schema } from '@tiptap/pm/model'
 
-export default function getSchemaTypeByName(name: string, schema: Schema): NodeType | MarkType | null {
-  if (schema.nodes[name]) {
-    return schema.nodes[name]
-  }
-
-  if (schema.marks[name]) {
-    return schema.marks[name]
-  }
-
-  return null
+/**
+ * Tries to get a node or mark type by its name.
+ * @param name The name of the node or mark type
+ * @param schema The Prosemiror schema to search in
+ * @returns The node or mark type, or null if it doesn't exist
+ */
+export function getSchemaTypeByName(name: string, schema: Schema): NodeType | MarkType | null {
+  return schema.nodes[name] || schema.marks[name] || null
 }

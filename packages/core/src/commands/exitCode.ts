@@ -1,13 +1,15 @@
-import { exitCode as originalExitCode } from 'prosemirror-commands'
-import { Command, RawCommands } from '../types'
+import { exitCode as originalExitCode } from '@tiptap/pm/commands'
+
+import { RawCommands } from '../types.js'
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     exitCode: {
       /**
        * Exit from a code block.
+       * @example editor.commands.exitCode()
        */
-      exitCode: () => Command,
+      exitCode: () => ReturnType
     }
   }
 }

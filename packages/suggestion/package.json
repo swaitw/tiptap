@@ -1,7 +1,7 @@
 {
   "name": "@tiptap/suggestion",
   "description": "suggestion plugin for tiptap",
-  "version": "2.0.0-beta.57",
+  "version": "2.11.6",
   "homepage": "https://tiptap.dev",
   "keywords": [
     "tiptap",
@@ -12,20 +12,37 @@
     "type": "github",
     "url": "https://github.com/sponsors/ueberdosis"
   },
-  "main": "dist/tiptap-suggestion.cjs.js",
-  "umd": "dist/tiptap-suggestion.umd.js",
-  "module": "dist/tiptap-suggestion.esm.js",
-  "types": "dist/packages/suggestion/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "umd": "dist/index.umd.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
   "files": [
     "src",
     "dist"
   ],
-  "peerDependencies": {
-    "@tiptap/core": "^2.0.0-beta.1"
+  "devDependencies": {
+    "@tiptap/core": "^2.11.6",
+    "@tiptap/pm": "^2.11.6"
   },
-  "dependencies": {
-    "prosemirror-model": "^1.14.1",
-    "prosemirror-state": "^1.3.4",
-    "prosemirror-view": "^1.18.7"
+  "peerDependencies": {
+    "@tiptap/core": "^2.7.0",
+    "@tiptap/pm": "^2.7.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ueberdosis/tiptap",
+    "directory": "packages/suggestion"
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && rollup -c"
   }
 }

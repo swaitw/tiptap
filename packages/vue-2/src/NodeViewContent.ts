@@ -1,4 +1,4 @@
-import Vue, { Component } from 'vue'
+import Vue, { Component, CreateElement } from 'vue'
 
 export interface NodeViewContentInterface extends Vue {
   as: string,
@@ -12,16 +12,14 @@ export const NodeViewContent: Component = {
     },
   },
 
-  render(this: NodeViewContentInterface, createElement) {
-    return createElement(
-      this.as, {
-        style: {
-          whiteSpace: 'pre-wrap',
-        },
-        attrs: {
-          'data-node-view-content': '',
-        },
+  render(this: NodeViewContentInterface, createElement: CreateElement) {
+    return createElement(this.as, {
+      style: {
+        whiteSpace: 'pre-wrap',
       },
-    )
+      attrs: {
+        'data-node-view-content': '',
+      },
+    })
   },
 }

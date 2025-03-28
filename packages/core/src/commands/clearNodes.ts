@@ -1,13 +1,15 @@
-import { liftTarget } from 'prosemirror-transform'
-import { Command, RawCommands } from '../types'
+import { liftTarget } from '@tiptap/pm/transform'
+
+import { RawCommands } from '../types.js'
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     clearNodes: {
       /**
        * Normalize nodes to a simple paragraph.
+       * @example editor.commands.clearNodes()
        */
-      clearNodes: () => Command,
+      clearNodes: () => ReturnType,
     }
   }
 }
@@ -16,15 +18,20 @@ export const clearNodes: RawCommands['clearNodes'] = () => ({ state, tr, dispatc
   const { selection } = tr
   const { ranges } = selection
 
-  ranges.forEach(range => {
-    state.doc.nodesBetween(range.$from.pos, range.$to.pos, (node, pos) => {
+  if (!dispatch) {
+    return true
+  }
+
+  ranges.forEach(({ $from, $to }) => {
+    state.doc.nodesBetween($from.pos, $to.pos, (node, pos) => {
       if (node.type.isText) {
         return
       }
 
-      const $fromPos = tr.doc.resolve(tr.mapping.map(pos))
-      const $toPos = tr.doc.resolve(tr.mapping.map(pos + node.nodeSize))
-      const nodeRange = $fromPos.blockRange($toPos)
+      const { doc, mapping } = tr
+      const $mappedFrom = doc.resolve(mapping.map(pos))
+      const $mappedTo = doc.resolve(mapping.map(pos + node.nodeSize))
+      const nodeRange = $mappedFrom.blockRange($mappedTo)
 
       if (!nodeRange) {
         return
@@ -32,13 +39,13 @@ export const clearNodes: RawCommands['clearNodes'] = () => ({ state, tr, dispatc
 
       const targetLiftDepth = liftTarget(nodeRange)
 
-      if (node.type.isTextblock && dispatch) {
-        const { defaultType } = $fromPos.parent.contentMatchAt($fromPos.index())
+      if (node.type.isTextblock) {
+        const { defaultType } = $mappedFrom.parent.contentMatchAt($mappedFrom.index())
 
         tr.setNodeMarkup(nodeRange.start, defaultType)
       }
 
-      if ((targetLiftDepth || targetLiftDepth === 0) && dispatch) {
+      if (targetLiftDepth || targetLiftDepth === 0) {
         tr.lift(nodeRange, targetLiftDepth)
       }
     })

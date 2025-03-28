@@ -1,17 +1,18 @@
-import { Command, RawCommands } from '../types'
+import { RawCommands } from '../types.js'
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     unsetAllMarks: {
       /**
        * Remove all marks in the current selection.
+       * @example editor.commands.unsetAllMarks()
        */
-      unsetAllMarks: () => Command,
+      unsetAllMarks: () => ReturnType,
     }
   }
 }
 
-export const unsetAllMarks: RawCommands['unsetAllMarks'] = () => ({ tr, state, dispatch }) => {
+export const unsetAllMarks: RawCommands['unsetAllMarks'] = () => ({ tr, dispatch }) => {
   const { selection } = tr
   const { empty, ranges } = selection
 
@@ -20,13 +21,9 @@ export const unsetAllMarks: RawCommands['unsetAllMarks'] = () => ({ tr, state, d
   }
 
   if (dispatch) {
-    Object
-      .entries(state.schema.marks)
-      .forEach(([, mark]) => {
-        ranges.forEach(range => {
-          tr.removeMark(range.$from.pos, range.$to.pos, mark as any)
-        })
-      })
+    ranges.forEach(range => {
+      tr.removeMark(range.$from.pos, range.$to.pos)
+    })
   }
 
   return true

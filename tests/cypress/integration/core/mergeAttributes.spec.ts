@@ -1,6 +1,6 @@
 /// <reference types="cypress" />
 
-import mergeAttributes from '@tiptap/core/src/utilities/mergeAttributes'
+import { mergeAttributes } from '@tiptap/core'
 
 describe('mergeAttributes', () => {
   it('should merge two objects', () => {
@@ -59,11 +59,26 @@ describe('mergeAttributes', () => {
   })
 
   it('should ignore falsy values', () => {
-    // @ts-expect-error
-    const value = mergeAttributes(undefined, { class: 'foo' })
+    const value = mergeAttributes(undefined as any, { class: 'foo' })
 
     expect(value).to.deep.eq({
       class: 'foo',
+    })
+  })
+
+  it('should overwrite styles', () => {
+    const value = mergeAttributes({ style: 'color: red' }, { style: 'color: green' })
+
+    expect(value).to.deep.eq({
+      style: 'color: green',
+    })
+  })
+
+  it('should merge several styles', () => {
+    const value = mergeAttributes({ style: 'color: red; background-color: red' }, { style: 'color: green;  background-color: red; margin-left: 30px' })
+
+    expect(value).to.deep.eq({
+      style: 'color: green; background-color: red; margin-left: 30px',
     })
   })
 })

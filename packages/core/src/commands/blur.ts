@@ -1,20 +1,27 @@
-import { Command, RawCommands } from '../types'
+import { RawCommands } from '../types.js'
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     blur: {
       /**
        * Removes focus from the editor.
+       * @example editor.commands.blur()
        */
-      blur: () => Command,
+      blur: () => ReturnType,
     }
   }
 }
 
-export const blur: RawCommands['blur'] = () => ({ view }) => {
-  const element = view.dom as HTMLElement
+export const blur: RawCommands['blur'] = () => ({ editor, view }) => {
+  requestAnimationFrame(() => {
+    if (!editor.isDestroyed) {
+      (view.dom as HTMLElement).blur()
 
-  element.blur()
+      // Browsers should remove the caret on blur but safari does not.
+      // See: https://github.com/ueberdosis/tiptap/issues/2405
+      window?.getSelection()?.removeAllRanges()
+    }
+  })
 
   return true
 }

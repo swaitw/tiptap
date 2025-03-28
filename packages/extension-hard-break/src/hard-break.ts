@@ -1,25 +1,45 @@
-import { Command, Node, mergeAttributes } from '@tiptap/core'
+import { mergeAttributes, Node } from '@tiptap/core'
 
 export interface HardBreakOptions {
+  /**
+   * Controls if marks should be kept after being split by a hard break.
+   * @default true
+   * @example false
+   */
+  keepMarks: boolean,
+
+  /**
+   * HTML attributes to add to the hard break element.
+   * @default {}
+   * @example { class: 'foo' }
+   */
   HTMLAttributes: Record<string, any>,
 }
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     hardBreak: {
       /**
        * Add a hard break
+       * @example editor.commands.setHardBreak()
        */
-      setHardBreak: () => Command,
+      setHardBreak: () => ReturnType,
     }
   }
 }
 
+/**
+ * This extension allows you to insert hard breaks.
+ * @see https://www.tiptap.dev/api/nodes/hard-break
+ */
 export const HardBreak = Node.create<HardBreakOptions>({
   name: 'hardBreak',
 
-  defaultOptions: {
-    HTMLAttributes: {},
+  addOptions() {
+    return {
+      keepMarks: true,
+      HTMLAttributes: {},
+    }
   },
 
   inline: true,
@@ -27,6 +47,8 @@ export const HardBreak = Node.create<HardBreakOptions>({
   group: 'inline',
 
   selectable: false,
+
+  linebreakReplacement: true,
 
   parseHTML() {
     return [
@@ -38,12 +60,46 @@ export const HardBreak = Node.create<HardBreakOptions>({
     return ['br', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes)]
   },
 
+  renderText() {
+    return '\n'
+  },
+
   addCommands() {
     return {
-      setHardBreak: () => ({ commands }) => {
+      setHardBreak: () => ({
+        commands,
+        chain,
+        state,
+        editor,
+      }) => {
         return commands.first([
           () => commands.exitCode(),
-          () => commands.insertContent({ type: this.name }),
+          () => commands.command(() => {
+            const { selection, storedMarks } = state
+
+            if (selection.$from.parent.type.spec.isolating) {
+              return false
+            }
+
+            const { keepMarks } = this.options
+            const { splittableMarks } = editor.extensionManager
+            const marks = storedMarks
+              || (selection.$to.parentOffset && selection.$from.marks())
+
+            return chain()
+              .insertContent({ type: this.name })
+              .command(({ tr, dispatch }) => {
+                if (dispatch && marks && keepMarks) {
+                  const filteredMarks = marks
+                    .filter(mark => splittableMarks.includes(mark.type.name))
+
+                  tr.ensureMarks(filteredMarks)
+                }
+
+                return true
+              })
+              .run()
+          }),
         ])
       },
     }

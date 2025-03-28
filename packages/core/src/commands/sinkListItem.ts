@@ -1,15 +1,18 @@
-import { sinkListItem as originalSinkListItem } from 'prosemirror-schema-list'
-import { NodeType } from 'prosemirror-model'
-import { Command, RawCommands } from '../types'
-import getNodeType from '../helpers/getNodeType'
+import { NodeType } from '@tiptap/pm/model'
+import { sinkListItem as originalSinkListItem } from '@tiptap/pm/schema-list'
+
+import { getNodeType } from '../helpers/getNodeType.js'
+import { RawCommands } from '../types.js'
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     sinkListItem: {
       /**
        * Sink the list item down into an inner list.
+       * @param typeOrName The type or name of the node.
+       * @example editor.commands.sinkListItem('listItem')
        */
-      sinkListItem: (typeOrName: string | NodeType) => Command,
+      sinkListItem: (typeOrName: string | NodeType) => ReturnType
     }
   }
 }

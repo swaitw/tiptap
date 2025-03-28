@@ -1,13 +1,17 @@
-export default function createStyleTag(style: string): HTMLStyleElement {
-  const tipTapStyleTag = (<HTMLStyleElement>document.querySelector('style[data-tiptap-style]'))
+export function createStyleTag(style: string, nonce?: string, suffix?: string): HTMLStyleElement {
+  const tiptapStyleTag = (<HTMLStyleElement>document.querySelector(`style[data-tiptap-style${suffix ? `-${suffix}` : ''}]`))
 
-  if (tipTapStyleTag !== null) {
-    return tipTapStyleTag
+  if (tiptapStyleTag !== null) {
+    return tiptapStyleTag
   }
 
   const styleNode = document.createElement('style')
 
-  styleNode.setAttribute('data-tiptap-style', '')
+  if (nonce) {
+    styleNode.setAttribute('nonce', nonce)
+  }
+
+  styleNode.setAttribute(`data-tiptap-style${suffix ? `-${suffix}` : ''}`, '')
   styleNode.innerHTML = style
   document.getElementsByTagName('head')[0].appendChild(styleNode)
 

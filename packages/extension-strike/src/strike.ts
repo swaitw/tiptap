@@ -1,5 +1,4 @@
 import {
-  Command,
   Mark,
   markInputRule,
   markPasteRule,
@@ -7,36 +6,57 @@ import {
 } from '@tiptap/core'
 
 export interface StrikeOptions {
+  /**
+   * HTML attributes to add to the strike element.
+   * @default {}
+   * @example { class: 'foo' }
+   */
   HTMLAttributes: Record<string, any>,
 }
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     strike: {
       /**
        * Set a strike mark
+       * @example editor.commands.setStrike()
        */
-      setStrike: () => Command,
+      setStrike: () => ReturnType,
       /**
        * Toggle a strike mark
+       * @example editor.commands.toggleStrike()
        */
-      toggleStrike: () => Command,
+      toggleStrike: () => ReturnType,
       /**
        * Unset a strike mark
+       * @example editor.commands.unsetStrike()
        */
-      unsetStrike: () => Command,
+      unsetStrike: () => ReturnType,
     }
   }
 }
 
-export const inputRegex = /(?:^|\s)((?:~~)((?:[^~]+))(?:~~))$/gm
-export const pasteRegex = /(?:^|\s)((?:~~)((?:[^~]+))(?:~~))/gm
+/**
+ * Matches a strike to a ~~strike~~ on input.
+ */
+export const inputRegex = /(?:^|\s)(~~(?!\s+~~)((?:[^~]+))~~(?!\s+~~))$/
 
+/**
+ * Matches a strike to a ~~strike~~ on paste.
+ */
+export const pasteRegex = /(?:^|\s)(~~(?!\s+~~)((?:[^~]+))~~(?!\s+~~))/g
+
+/**
+ * This extension allows you to create strike text.
+ * @see https://www.tiptap.dev/api/marks/strike
+ */
 export const Strike = Mark.create<StrikeOptions>({
   name: 'strike',
 
-  defaultOptions: {
-    HTMLAttributes: {},
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    }
   },
 
   parseHTML() {
@@ -65,32 +85,38 @@ export const Strike = Mark.create<StrikeOptions>({
   addCommands() {
     return {
       setStrike: () => ({ commands }) => {
-        return commands.setMark('strike')
+        return commands.setMark(this.name)
       },
       toggleStrike: () => ({ commands }) => {
-        return commands.toggleMark('strike')
+        return commands.toggleMark(this.name)
       },
       unsetStrike: () => ({ commands }) => {
-        return commands.unsetMark('strike')
+        return commands.unsetMark(this.name)
       },
     }
   },
 
   addKeyboardShortcuts() {
     return {
-      'Mod-Shift-x': () => this.editor.commands.toggleStrike(),
+      'Mod-Shift-s': () => this.editor.commands.toggleStrike(),
     }
   },
 
   addInputRules() {
     return [
-      markInputRule(inputRegex, this.type),
+      markInputRule({
+        find: inputRegex,
+        type: this.type,
+      }),
     ]
   },
 
   addPasteRules() {
     return [
-      markPasteRule(pasteRegex, this.type),
+      markPasteRule({
+        find: pasteRegex,
+        type: this.type,
+      }),
     ]
   },
 })

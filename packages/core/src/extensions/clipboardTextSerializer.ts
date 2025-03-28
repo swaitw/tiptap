@@ -1,40 +1,21 @@
-import { Editor } from '@tiptap/core'
-import { Plugin, PluginKey } from 'prosemirror-state'
-import { Extension } from '../Extension'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
 
-const textBetween = (
-  editor: Editor,
-  from: number,
-  to: number,
+import { Extension } from '../Extension.js'
+import { getTextBetween } from '../helpers/getTextBetween.js'
+import { getTextSerializersFromSchema } from '../helpers/getTextSerializersFromSchema.js'
+
+export type ClipboardTextSerializerOptions = {
   blockSeparator?: string,
-  leafText?: string,
-): string => {
-  let text = ''
-  let separated = true
-
-  editor.state.doc.nodesBetween(from, to, (node, pos) => {
-    const textSerializer = editor.extensionManager.textSerializers[node.type.name]
-
-    if (textSerializer) {
-      text += textSerializer({ node })
-      separated = !blockSeparator
-    } else if (node.isText) {
-      text += node?.text?.slice(Math.max(from, pos) - pos, to - pos)
-      separated = !blockSeparator
-    } else if (node.isLeaf && leafText) {
-      text += leafText
-      separated = !blockSeparator
-    } else if (!separated && node.isBlock) {
-      text += blockSeparator
-      separated = true
-    }
-  }, 0)
-
-  return text
 }
 
-export const ClipboardTextSerializer = Extension.create({
-  name: 'editable',
+export const ClipboardTextSerializer = Extension.create<ClipboardTextSerializerOptions>({
+  name: 'clipboardTextSerializer',
+
+  addOptions() {
+    return {
+      blockSeparator: undefined,
+    }
+  },
 
   addProseMirrorPlugins() {
     return [
@@ -43,9 +24,20 @@ export const ClipboardTextSerializer = Extension.create({
         props: {
           clipboardTextSerializer: () => {
             const { editor } = this
-            const { from, to } = editor.state.selection
+            const { state, schema } = editor
+            const { doc, selection } = state
+            const { ranges } = selection
+            const from = Math.min(...ranges.map(range => range.$from.pos))
+            const to = Math.max(...ranges.map(range => range.$to.pos))
+            const textSerializers = getTextSerializersFromSchema(schema)
+            const range = { from, to }
 
-            return textBetween(editor, from, to, '\n')
+            return getTextBetween(doc, range, {
+              ...(this.options.blockSeparator !== undefined
+                ? { blockSeparator: this.options.blockSeparator }
+                : {}),
+              textSerializers,
+            })
           },
         },
       }),

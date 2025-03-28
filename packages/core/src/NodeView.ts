@@ -1,44 +1,56 @@
-import { Decoration, NodeView as ProseMirrorNodeView } from 'prosemirror-view'
-import { NodeSelection } from 'prosemirror-state'
-import { Node as ProseMirrorNode } from 'prosemirror-model'
-import { Editor as CoreEditor } from './Editor'
-import { Node } from './Node'
-import isiOS from './utilities/isiOS'
-import { NodeViewRendererProps } from './types'
+import { NodeSelection } from '@tiptap/pm/state'
+import { NodeView as ProseMirrorNodeView, ViewMutationRecord } from '@tiptap/pm/view'
 
-interface NodeViewRendererOptions {
-  stopEvent: ((event: Event) => boolean) | null,
-  update: ((node: ProseMirrorNode, decorations: Decoration[]) => boolean) | null,
-}
+import { Editor as CoreEditor } from './Editor.js'
+import { DecorationWithType, NodeViewRendererOptions, NodeViewRendererProps } from './types.js'
+import { isAndroid } from './utilities/isAndroid.js'
+import { isiOS } from './utilities/isiOS.js'
 
-export class NodeView<Component, Editor extends CoreEditor = CoreEditor> implements ProseMirrorNodeView {
-
+/**
+ * Node views are used to customize the rendered DOM structure of a node.
+ * @see https://tiptap.dev/guide/node-views
+ */
+export class NodeView<
+  Component,
+  NodeEditor extends CoreEditor = CoreEditor,
+  Options extends NodeViewRendererOptions = NodeViewRendererOptions,
+> implements ProseMirrorNodeView {
   component: Component
 
-  editor: Editor
+  editor: NodeEditor
 
-  extension: Node
+  options: Options
 
-  node: ProseMirrorNode
+  extension: NodeViewRendererProps['extension']
 
-  decorations: Decoration[]
+  node: NodeViewRendererProps['node']
 
-  getPos: any
+  decorations: NodeViewRendererProps['decorations']
+
+  innerDecorations: NodeViewRendererProps['innerDecorations']
+
+  view: NodeViewRendererProps['view']
+
+  getPos: NodeViewRendererProps['getPos']
+
+  HTMLAttributes: NodeViewRendererProps['HTMLAttributes']
 
   isDragging = false
 
-  options: NodeViewRendererOptions = {
-    stopEvent: null,
-    update: null,
-  }
-
-  constructor(component: Component, props: NodeViewRendererProps, options?: Partial<NodeViewRendererOptions>) {
+  constructor(component: Component, props: NodeViewRendererProps, options?: Partial<Options>) {
     this.component = component
-    this.options = { ...this.options, ...options }
-    this.editor = props.editor as Editor
+    this.editor = props.editor as NodeEditor
+    this.options = {
+      stopEvent: null,
+      ignoreMutation: null,
+      ...options,
+    } as Options
     this.extension = props.extension
     this.node = props.node
-    this.decorations = props.decorations
+    this.decorations = props.decorations as DecorationWithType[]
+    this.innerDecorations = props.innerDecorations
+    this.view = props.view
+    this.HTMLAttributes = props.HTMLAttributes
     this.getPos = props.getPos
     this.mount()
   }
@@ -48,17 +60,17 @@ export class NodeView<Component, Editor extends CoreEditor = CoreEditor> impleme
     return
   }
 
-  get dom(): Element | null {
-    return null
+  get dom(): HTMLElement {
+    return this.editor.view.dom as HTMLElement
   }
 
-  get contentDOM(): Element | null {
+  get contentDOM(): HTMLElement | null {
     return null
   }
 
   onDragStart(event: DragEvent) {
     const { view } = this.editor
-    const target = (event.target as HTMLElement)
+    const target = event.target as HTMLElement
 
     // get the drag handle element
     // `closest` is not available for text nodes so we may have to use its parent
@@ -66,11 +78,7 @@ export class NodeView<Component, Editor extends CoreEditor = CoreEditor> impleme
       ? target.parentElement?.closest('[data-drag-handle]')
       : target.closest('[data-drag-handle]')
 
-    if (
-      !this.dom
-      || this.contentDOM?.contains(target)
-      || !dragHandle
-    ) {
+    if (!this.dom || this.contentDOM?.contains(target) || !dragHandle) {
       return
     }
 
@@ -82,15 +90,24 @@ export class NodeView<Component, Editor extends CoreEditor = CoreEditor> impleme
       const domBox = this.dom.getBoundingClientRect()
       const handleBox = dragHandle.getBoundingClientRect()
 
-      x = handleBox.x - domBox.x + event.offsetX
-      y = handleBox.y - domBox.y + event.offsetY
+      // In React, we have to go through nativeEvent to reach offsetX/offsetY.
+      const offsetX = event.offsetX ?? (event as any).nativeEvent?.offsetX
+      const offsetY = event.offsetY ?? (event as any).nativeEvent?.offsetY
+
+      x = handleBox.x - domBox.x + offsetX
+      y = handleBox.y - domBox.y + offsetY
     }
 
     event.dataTransfer?.setDragImage(this.dom, x, y)
 
+    const pos = this.getPos()
+
+    if (typeof pos !== 'number') {
+      return
+    }
     // we need to tell ProseMirror that we want to move the whole node
     // so we create a NodeSelection
-    const selection = NodeSelection.create(view.state.doc, this.getPos())
+    const selection = NodeSelection.create(view.state.doc, pos)
     const transaction = view.state.tr.setSelection(selection)
 
     view.dispatch(transaction)
@@ -102,10 +119,10 @@ export class NodeView<Component, Editor extends CoreEditor = CoreEditor> impleme
     }
 
     if (typeof this.options.stopEvent === 'function') {
-      return this.options.stopEvent(event)
+      return this.options.stopEvent({ event })
     }
 
-    const target = (event.target as HTMLElement)
+    const target = event.target as HTMLElement
     const isInElement = this.dom.contains(target) && !this.contentDOM?.contains(target)
 
     // any event from child nodes should be handled by ProseMirror
@@ -113,11 +130,12 @@ export class NodeView<Component, Editor extends CoreEditor = CoreEditor> impleme
       return false
     }
 
-    const isInput = ['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA'].includes(target.tagName)
-      || target.isContentEditable
+    const isDragEvent = event.type.startsWith('drag')
+    const isDropEvent = event.type === 'drop'
+    const isInput = ['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable
 
     // any input event within node views should be ignored by ProseMirror
-    if (isInput) {
+    if (isInput && !isDropEvent && !isDragEvent) {
       return true
     }
 
@@ -129,16 +147,15 @@ export class NodeView<Component, Editor extends CoreEditor = CoreEditor> impleme
     const isPasteEvent = event.type === 'paste'
     const isCutEvent = event.type === 'cut'
     const isClickEvent = event.type === 'mousedown'
-    const isDragEvent = event.type.startsWith('drag') || event.type === 'drop'
 
     // ProseMirror tries to drag selectable nodes
     // even if `draggable` is set to `false`
     // this fix prevents that
-    if (!isDraggable && isSelectable && isDragEvent) {
+    if (!isDraggable && isSelectable && isDragEvent && event.target === this.dom) {
       event.preventDefault()
     }
 
-    if (isDraggable && isDragEvent && !isDragging) {
+    if (isDraggable && isDragEvent && !isDragging && event.target === this.dom) {
       event.preventDefault()
       return false
     }
@@ -146,25 +163,41 @@ export class NodeView<Component, Editor extends CoreEditor = CoreEditor> impleme
     // we have to store that dragging started
     if (isDraggable && isEditable && !isDragging && isClickEvent) {
       const dragHandle = target.closest('[data-drag-handle]')
-      const isValidDragHandle = dragHandle
-        && (this.dom === dragHandle || (this.dom.contains(dragHandle)))
+      const isValidDragHandle = dragHandle && (this.dom === dragHandle || this.dom.contains(dragHandle))
 
       if (isValidDragHandle) {
         this.isDragging = true
 
-        document.addEventListener('dragend', () => {
-          this.isDragging = false
-        }, { once: true })
+        document.addEventListener(
+          'dragend',
+          () => {
+            this.isDragging = false
+          },
+          { once: true },
+        )
 
-        document.addEventListener('mouseup', () => {
-          this.isDragging = false
-        }, { once: true })
+        document.addEventListener(
+          'drop',
+          () => {
+            this.isDragging = false
+          },
+          { once: true },
+        )
+
+        document.addEventListener(
+          'mouseup',
+          () => {
+            this.isDragging = false
+          },
+          { once: true },
+        )
       }
     }
 
     // these events are handled by prosemirror
     if (
       isDragging
+      || isDropEvent
       || isCopyEvent
       || isPasteEvent
       || isCutEvent
@@ -176,14 +209,23 @@ export class NodeView<Component, Editor extends CoreEditor = CoreEditor> impleme
     return true
   }
 
-  ignoreMutation(mutation: MutationRecord | { type: 'selection', target: Element }) {
+  /**
+   * Called when a DOM [mutation](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver) or a selection change happens within the view.
+   * @return `false` if the editor should re-read the selection or re-parse the range around the mutation
+   * @return `true` if it can safely be ignored.
+   */
+  ignoreMutation(mutation: ViewMutationRecord) {
     if (!this.dom || !this.contentDOM) {
       return true
     }
 
+    if (typeof this.options.ignoreMutation === 'function') {
+      return this.options.ignoreMutation({ mutation })
+    }
+
     // a leaf/atom node is like a black box for ProseMirror
     // and should be fully handled by the node view
-    if (this.node.isLeaf) {
+    if (this.node.isLeaf || this.node.isAtom) {
       return true
     }
 
@@ -192,11 +234,17 @@ export class NodeView<Component, Editor extends CoreEditor = CoreEditor> impleme
       return false
     }
 
-    // try to prevent a bug on iOS that will break node views on enter
+    // try to prevent a bug on iOS and Android that will break node views on enter
     // this is because ProseMirror can’t preventDispatch on enter
     // this will lead to a re-render of the node view on enter
     // see: https://github.com/ueberdosis/tiptap/issues/1214
-    if (this.dom.contains(mutation.target) && mutation.type === 'childList' && isiOS()) {
+    // see: https://github.com/ueberdosis/tiptap/issues/2534
+    if (
+      this.dom.contains(mutation.target)
+      && mutation.type === 'childList'
+      && (isiOS() || isAndroid())
+      && this.editor.isFocused
+    ) {
       const changedNodes = [
         ...Array.from(mutation.addedNodes),
         ...Array.from(mutation.removedNodes),
@@ -223,23 +271,35 @@ export class NodeView<Component, Editor extends CoreEditor = CoreEditor> impleme
     return true
   }
 
-  updateAttributes(attributes: {}) {
-    if (!this.editor.view.editable) {
-      return
-    }
+  /**
+   * Update the attributes of the prosemirror node.
+   */
+  updateAttributes(attributes: Record<string, any>): void {
+    this.editor.commands.command(({ tr }) => {
+      const pos = this.getPos()
 
-    const { state } = this.editor.view
-    const pos = this.getPos()
-    const transaction = state.tr.setNodeMarkup(pos, undefined, {
-      ...this.node.attrs,
-      ...attributes,
+      if (typeof pos !== 'number') {
+        return false
+      }
+
+      tr.setNodeMarkup(pos, undefined, {
+        ...this.node.attrs,
+        ...attributes,
+      })
+
+      return true
     })
-
-    this.editor.view.dispatch(transaction)
   }
 
+  /**
+   * Delete the node.
+   */
   deleteNode(): void {
     const from = this.getPos()
+
+    if (typeof from !== 'number') {
+      return
+    }
     const to = from + this.node.nodeSize
 
     this.editor.commands.deleteRange({ from, to })

@@ -1,5 +1,4 @@
 import {
-  Command,
   Mark,
   markInputRule,
   markPasteRule,
@@ -7,39 +6,67 @@ import {
 } from '@tiptap/core'
 
 export interface CodeOptions {
+  /**
+   * The HTML attributes applied to the code element.
+   * @default {}
+   * @example { class: 'foo' }
+   */
   HTMLAttributes: Record<string, any>,
 }
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     code: {
       /**
        * Set a code mark
        */
-      setCode: () => Command,
+      setCode: () => ReturnType,
       /**
        * Toggle inline code
        */
-      toggleCode: () => Command,
+      toggleCode: () => ReturnType,
       /**
        * Unset a code mark
        */
-      unsetCode: () => Command,
+      unsetCode: () => ReturnType,
     }
   }
 }
 
-export const inputRegex = /(?:^|\s)((?:`)((?:[^`]+))(?:`))$/gm
-export const pasteRegex = /(?:^|\s)((?:`)((?:[^`]+))(?:`))/gm
+/**
+ * Regular expressions to match inline code blocks enclosed in backticks.
+ *  It matches:
+ *     - An opening backtick, followed by
+ *     - Any text that doesn't include a backtick (captured for marking), followed by
+ *     - A closing backtick.
+ *  This ensures that any text between backticks is formatted as code,
+ *  regardless of the surrounding characters (exception being another backtick).
+ */
+export const inputRegex = /(^|[^`])`([^`]+)`(?!`)/
 
+/**
+ * Matches inline code while pasting.
+ */
+export const pasteRegex = /(^|[^`])`([^`]+)`(?!`)/g
+
+/**
+ * This extension allows you to mark text as inline code.
+ * @see https://tiptap.dev/api/marks/code
+ */
 export const Code = Mark.create<CodeOptions>({
   name: 'code',
 
-  defaultOptions: {
-    HTMLAttributes: {},
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    }
   },
 
   excludes: '_',
+
+  code: true,
+
+  exitable: true,
 
   parseHTML() {
     return [
@@ -54,13 +81,13 @@ export const Code = Mark.create<CodeOptions>({
   addCommands() {
     return {
       setCode: () => ({ commands }) => {
-        return commands.setMark('code')
+        return commands.setMark(this.name)
       },
       toggleCode: () => ({ commands }) => {
-        return commands.toggleMark('code')
+        return commands.toggleMark(this.name)
       },
       unsetCode: () => ({ commands }) => {
-        return commands.unsetMark('code')
+        return commands.unsetMark(this.name)
       },
     }
   },
@@ -73,13 +100,19 @@ export const Code = Mark.create<CodeOptions>({
 
   addInputRules() {
     return [
-      markInputRule(inputRegex, this.type),
+      markInputRule({
+        find: inputRegex,
+        type: this.type,
+      }),
     ]
   },
 
   addPasteRules() {
     return [
-      markPasteRule(inputRegex, this.type),
+      markPasteRule({
+        find: pasteRegex,
+        type: this.type,
+      }),
     ]
   },
 })

@@ -1,6 +1,7 @@
-import { ParseRule } from 'prosemirror-model'
-import { ExtensionAttribute } from '../types'
-import fromString from '../utilities/fromString'
+import { ParseRule } from '@tiptap/pm/model'
+
+import { ExtensionAttribute } from '../types.js'
+import { fromString } from '../utilities/fromString.js'
 
 /**
  * This function merges extension attributes into parserule attributes (`attrs` or `getAttrs`).
@@ -8,39 +9,37 @@ import fromString from '../utilities/fromString'
  * @param parseRule ProseMirror ParseRule
  * @param extensionAttributes List of attributes to inject
  */
-export default function injectExtensionAttributesToParseRule(parseRule: ParseRule, extensionAttributes: ExtensionAttribute[]): ParseRule {
-  if (parseRule.style) {
+export function injectExtensionAttributesToParseRule(
+  parseRule: ParseRule,
+  extensionAttributes: ExtensionAttribute[],
+): ParseRule {
+  if ('style' in parseRule) {
     return parseRule
   }
 
   return {
     ...parseRule,
-    getAttrs: node => {
-      const oldAttributes = parseRule.getAttrs
-        ? parseRule.getAttrs(node)
-        : parseRule.attrs
+    getAttrs: (node: HTMLElement) => {
+      const oldAttributes = parseRule.getAttrs ? parseRule.getAttrs(node) : parseRule.attrs
 
       if (oldAttributes === false) {
         return false
       }
 
-      const newAttributes = extensionAttributes
-        .filter(item => item.attribute.rendered)
-        .reduce((items, item) => {
-          const attributes = item.attribute.parseHTML
-            ? item.attribute.parseHTML(node as HTMLElement) || {}
-            : {
-              [item.name]: fromString((node as HTMLElement).getAttribute(item.name)),
-            }
+      const newAttributes = extensionAttributes.reduce((items, item) => {
+        const value = item.attribute.parseHTML
+          ? item.attribute.parseHTML(node)
+          : fromString((node).getAttribute(item.name))
 
-          const filteredAttributes = Object.fromEntries(Object.entries(attributes)
-            .filter(([, value]) => value !== undefined && value !== null))
+        if (value === null || value === undefined) {
+          return items
+        }
 
-          return {
-            ...items,
-            ...filteredAttributes,
-          }
-        }, {})
+        return {
+          ...items,
+          [item.name]: value,
+        }
+      }, {})
 
       return { ...oldAttributes, ...newAttributes }
     },

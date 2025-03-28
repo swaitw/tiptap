@@ -1,54 +1,180 @@
 import { Editor, Range } from '@tiptap/core'
-import { Plugin, PluginKey } from 'prosemirror-state'
-import { Decoration, DecorationSet, EditorView } from 'prosemirror-view'
-import { findSuggestionMatch } from './findSuggestionMatch'
+import { EditorState, Plugin, PluginKey } from '@tiptap/pm/state'
+import { Decoration, DecorationSet, EditorView } from '@tiptap/pm/view'
 
-export interface SuggestionOptions {
-  editor: Editor,
-  char?: string,
-  allowSpaces?: boolean,
-  startOfLine?: boolean,
-  decorationTag?: string,
-  decorationClass?: string,
-  command?: (props: {
-    editor: Editor,
-    range: Range,
-    props: any,
-  }) => void,
-  items?: (query: string) => any[],
+import { findSuggestionMatch as defaultFindSuggestionMatch } from './findSuggestionMatch.js'
+
+export interface SuggestionOptions<I = any, TSelected = any> {
+  /**
+   * The plugin key for the suggestion plugin.
+   * @default 'suggestion'
+   * @example 'mention'
+   */
+  pluginKey?: PluginKey
+
+  /**
+   * The editor instance.
+   * @default null
+   */
+  editor: Editor
+
+  /**
+   * The character that triggers the suggestion.
+   * @default '@'
+   * @example '#'
+   */
+  char?: string
+
+  /**
+   * Allow spaces in the suggestion query. Not compatible with `allowToIncludeChar`. Will be disabled if `allowToIncludeChar` is set to `true`.
+   * @default false
+   * @example true
+  */
+  allowSpaces?: boolean
+
+  /**
+   * Allow the character to be included in the suggestion query. Not compatible with `allowSpaces`.
+   * @default false
+   */
+  allowToIncludeChar?: boolean
+
+  /**
+   * Allow prefixes in the suggestion query.
+   * @default [' ']
+   * @example [' ', '@']
+   */
+  allowedPrefixes?: string[] | null
+
+  /**
+   * Only match suggestions at the start of the line.
+   * @default false
+   * @example true
+   */
+  startOfLine?: boolean
+
+  /**
+   * The tag name of the decoration node.
+   * @default 'span'
+   * @example 'div'
+   */
+  decorationTag?: string
+
+  /**
+   * The class name of the decoration node.
+   * @default 'suggestion'
+   * @example 'mention'
+   */
+  decorationClass?: string
+
+  /**
+   * A function that is called when a suggestion is selected.
+   * @param props The props object.
+   * @param props.editor The editor instance.
+   * @param props.range The range of the suggestion.
+   * @param props.props The props of the selected suggestion.
+   * @returns void
+   * @example ({ editor, range, props }) => { props.command(props.props) }
+   */
+  command?: (props: { editor: Editor; range: Range; props: TSelected }) => void
+
+  /**
+   * A function that returns the suggestion items in form of an array.
+   * @param props The props object.
+   * @param props.editor The editor instance.
+   * @param props.query The current suggestion query.
+   * @returns An array of suggestion items.
+   * @example ({ editor, query }) => [{ id: 1, label: 'John Doe' }]
+   */
+  items?: (props: { query: string; editor: Editor }) => I[] | Promise<I[]>
+
+  /**
+   * The render function for the suggestion.
+   * @returns An object with render functions.
+   */
   render?: () => {
-    onStart?: (props: SuggestionProps) => void,
-    onUpdate?: (props: SuggestionProps) => void,
-    onExit?: (props: SuggestionProps) => void,
-    onKeyDown?: (props: SuggestionKeyDownProps) => boolean,
-  },
-  allow?: (props: {
-    editor: Editor,
-    range: Range,
-  }) => boolean,
+    onBeforeStart?: (props: SuggestionProps<I, TSelected>) => void;
+    onStart?: (props: SuggestionProps<I, TSelected>) => void;
+    onBeforeUpdate?: (props: SuggestionProps<I, TSelected>) => void;
+    onUpdate?: (props: SuggestionProps<I, TSelected>) => void;
+    onExit?: (props: SuggestionProps<I, TSelected>) => void;
+    onKeyDown?: (props: SuggestionKeyDownProps) => boolean;
+  }
+
+  /**
+   * A function that returns a boolean to indicate if the suggestion should be active.
+   * @param props The props object.
+   * @returns {boolean}
+   */
+  allow?: (props: { editor: Editor; state: EditorState; range: Range, isActive?: boolean }) => boolean
+  findSuggestionMatch?: typeof defaultFindSuggestionMatch
 }
 
-export interface SuggestionProps {
-  editor: Editor,
-  range: Range,
-  query: string,
-  text: string,
-  items: any[],
-  command: (props: any) => void,
-  decorationNode: Element | null,
-  clientRect: (() => DOMRect) | null,
+export interface SuggestionProps<I = any, TSelected = any> {
+  /**
+   * The editor instance.
+   */
+  editor: Editor
+
+  /**
+   * The range of the suggestion.
+   */
+  range: Range
+
+  /**
+   * The current suggestion query.
+   */
+  query: string
+
+  /**
+   * The current suggestion text.
+   */
+  text: string
+
+  /**
+   * The suggestion items array.
+   */
+  items: I[]
+
+  /**
+   * A function that is called when a suggestion is selected.
+   * @param props The props object.
+   * @returns void
+   */
+  command: (props: TSelected) => void
+
+  /**
+   * The decoration node HTML element
+   * @default null
+   */
+  decorationNode: Element | null
+
+  /**
+   * The function that returns the client rect
+   * @default null
+   * @example () => new DOMRect(0, 0, 0, 0)
+   */
+  clientRect?: (() => DOMRect | null) | null
 }
 
 export interface SuggestionKeyDownProps {
-  view: EditorView,
-  event: KeyboardEvent,
-  range: Range,
+  view: EditorView
+  event: KeyboardEvent
+  range: Range
 }
 
-export function Suggestion({
+export const SuggestionPluginKey = new PluginKey('suggestion')
+
+/**
+ * This utility allows you to create suggestions.
+ * @see https://tiptap.dev/api/utilities/suggestion
+ */
+export function Suggestion<I = any, TSelected = any>({
+  pluginKey = SuggestionPluginKey,
   editor,
   char = '@',
   allowSpaces = false,
+  allowToIncludeChar = false,
+  allowedPrefixes = [' '],
   startOfLine = false,
   decorationTag = 'span',
   decorationClass = 'suggestion',
@@ -56,12 +182,13 @@ export function Suggestion({
   items = () => [],
   render = () => ({}),
   allow = () => true,
-}: SuggestionOptions) {
-
+  findSuggestionMatch = defaultFindSuggestionMatch,
+}: SuggestionOptions<I, TSelected>) {
+  let props: SuggestionProps<I, TSelected> | undefined
   const renderer = render?.()
 
-  return new Plugin({
-    key: new PluginKey('suggestion'),
+  const plugin: Plugin<any> = new Plugin({
+    key: pluginKey,
 
     view() {
       return {
@@ -74,27 +201,29 @@ export function Suggestion({
           const started = !prev.active && next.active
           const stopped = prev.active && !next.active
           const changed = !started && !stopped && prev.query !== next.query
-          const handleStart = started || moved
-          const handleChange = changed && !moved
-          const handleExit = stopped || moved
+
+          const handleStart = started || (moved && changed)
+          const handleChange = changed || moved
+          const handleExit = stopped || (moved && changed)
 
           // Cancel when suggestion isn't active
           if (!handleStart && !handleChange && !handleExit) {
             return
           }
 
-          const state = handleExit ? prev : next
-          const decorationNode = document.querySelector(`[data-decoration-id="${state.decorationId}"]`)
-          const props: SuggestionProps = {
+          const state = handleExit && !handleStart ? prev : next
+          const decorationNode = view.dom.querySelector(
+            `[data-decoration-id="${state.decorationId}"]`,
+          )
+
+          props = {
             editor,
             range: state.range,
             query: state.query,
             text: state.text,
-            items: (handleChange || handleStart)
-              ? await items(state.query)
-              : [],
+            items: [],
             command: commandProps => {
-              command({
+              return command({
                 editor,
                 range: state.range,
                 props: commandProps,
@@ -104,8 +233,31 @@ export function Suggestion({
             // virtual node for popper.js or tippy.js
             // this can be used for building popups without a DOM node
             clientRect: decorationNode
-              ? () => decorationNode.getBoundingClientRect()
+              ? () => {
+                // because of `items` can be asynchrounous we’ll search for the current decoration node
+                  const { decorationId } = this.key?.getState(editor.state) // eslint-disable-line
+                const currentDecorationNode = view.dom.querySelector(
+                  `[data-decoration-id="${decorationId}"]`,
+                )
+
+                return currentDecorationNode?.getBoundingClientRect() || null
+              }
               : null,
+          }
+
+          if (handleStart) {
+            renderer?.onBeforeStart?.(props)
+          }
+
+          if (handleChange) {
+            renderer?.onBeforeUpdate?.(props)
+          }
+
+          if (handleChange || handleStart) {
+            props.items = await items({
+              editor,
+              query: state.query,
+            })
           }
 
           if (handleExit) {
@@ -120,29 +272,57 @@ export function Suggestion({
             renderer?.onStart?.(props)
           }
         },
+
+        destroy: () => {
+          if (!props) {
+            return
+          }
+
+          renderer?.onExit?.(props)
+        },
       }
     },
 
     state: {
       // Initialize the plugin's internal state.
       init() {
-        return {
+        const state: {
+          active: boolean
+          range: Range
+          query: null | string
+          text: null | string
+          composing: boolean
+          decorationId?: string | null
+        } = {
           active: false,
-          range: {},
+          range: {
+            from: 0,
+            to: 0,
+          },
           query: null,
           text: null,
+          composing: false,
         }
+
+        return state
       },
 
       // Apply changes to the plugin state from a view transaction.
-      apply(transaction, prev) {
+      apply(transaction, prev, _oldState, state) {
+        const { isEditable } = editor
+        const { composing } = editor.view
         const { selection } = transaction
+        const { empty, from } = selection
         const next = { ...prev }
 
-        // We can only be suggesting if there is no selection
-        if (selection.from === selection.to) {
+        next.composing = composing
+
+        // We can only be suggesting if the view is editable, and:
+        //   * there is no selection, or
+        //   * a composition is active (see: https://github.com/ueberdosis/tiptap/issues/1449)
+        if (isEditable && (empty || editor.view.composing)) {
           // Reset active state if we just left the previous suggestion range
-          if (selection.from < prev.range.from || selection.from > prev.range.to) {
+          if ((from < prev.range.from || from > prev.range.to) && !composing && !prev.composing) {
             next.active = false
           }
 
@@ -150,13 +330,17 @@ export function Suggestion({
           const match = findSuggestionMatch({
             char,
             allowSpaces,
+            allowToIncludeChar,
+            allowedPrefixes,
             startOfLine,
             $position: selection.$from,
           })
-          const decorationId = `id_${Math.floor(Math.random() * 0xFFFFFFFF)}`
+          const decorationId = `id_${Math.floor(Math.random() * 0xffffffff)}`
 
           // If we found a match, update the current state to show it
-          if (match && allow({ editor, range: match.range })) {
+          if (match && allow({
+            editor, state, range: match.range, isActive: prev.active,
+          })) {
             next.active = true
             next.decorationId = prev.decorationId ? prev.decorationId : decorationId
             next.range = match.range
@@ -172,7 +356,7 @@ export function Suggestion({
         // Make sure to empty the range if suggestion is inactive
         if (!next.active) {
           next.decorationId = null
-          next.range = {}
+          next.range = { from: 0, to: 0 }
           next.query = null
           next.text = null
         }
@@ -184,7 +368,7 @@ export function Suggestion({
     props: {
       // Call the keydown hook if suggestion is active.
       handleKeyDown(view, event) {
-        const { active, range } = this.getState(view.state)
+        const { active, range } = plugin.getState(view.state)
 
         if (!active) {
           return false
@@ -195,7 +379,7 @@ export function Suggestion({
 
       // Setup decorator on the currently active suggestion.
       decorations(state) {
-        const { active, range, decorationId } = this.getState(state)
+        const { active, range, decorationId } = plugin.getState(state)
 
         if (!active) {
           return null
@@ -211,4 +395,6 @@ export function Suggestion({
       },
     },
   })
+
+  return plugin
 }

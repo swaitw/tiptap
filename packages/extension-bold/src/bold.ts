@@ -1,5 +1,4 @@
 import {
-  Command,
   Mark,
   markInputRule,
   markPasteRule,
@@ -7,38 +6,64 @@ import {
 } from '@tiptap/core'
 
 export interface BoldOptions {
+  /**
+   * HTML attributes to add to the bold element.
+   * @default {}
+   * @example { class: 'foo' }
+   */
   HTMLAttributes: Record<string, any>,
 }
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     bold: {
       /**
        * Set a bold mark
        */
-      setBold: () => Command,
+      setBold: () => ReturnType,
       /**
        * Toggle a bold mark
        */
-      toggleBold: () => Command,
+      toggleBold: () => ReturnType,
       /**
        * Unset a bold mark
        */
-      unsetBold: () => Command,
+      unsetBold: () => ReturnType,
     }
   }
 }
 
-export const starInputRegex = /(?:^|\s)((?:\*\*)((?:[^*]+))(?:\*\*))$/gm
-export const starPasteRegex = /(?:^|\s)((?:\*\*)((?:[^*]+))(?:\*\*))/gm
-export const underscoreInputRegex = /(?:^|\s)((?:__)((?:[^__]+))(?:__))$/gm
-export const underscorePasteRegex = /(?:^|\s)((?:__)((?:[^__]+))(?:__))/gm
+/**
+ * Matches bold text via `**` as input.
+ */
+export const starInputRegex = /(?:^|\s)(\*\*(?!\s+\*\*)((?:[^*]+))\*\*(?!\s+\*\*))$/
 
+/**
+ * Matches bold text via `**` while pasting.
+ */
+export const starPasteRegex = /(?:^|\s)(\*\*(?!\s+\*\*)((?:[^*]+))\*\*(?!\s+\*\*))/g
+
+/**
+ * Matches bold text via `__` as input.
+ */
+export const underscoreInputRegex = /(?:^|\s)(__(?!\s+__)((?:[^_]+))__(?!\s+__))$/
+
+/**
+ * Matches bold text via `__` while pasting.
+ */
+export const underscorePasteRegex = /(?:^|\s)(__(?!\s+__)((?:[^_]+))__(?!\s+__))/g
+
+/**
+ * This extension allows you to mark text as bold.
+ * @see https://tiptap.dev/api/marks/bold
+ */
 export const Bold = Mark.create<BoldOptions>({
   name: 'bold',
 
-  defaultOptions: {
-    HTMLAttributes: {},
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    }
   },
 
   parseHTML() {
@@ -49,6 +74,10 @@ export const Bold = Mark.create<BoldOptions>({
       {
         tag: 'b',
         getAttrs: node => (node as HTMLElement).style.fontWeight !== 'normal' && null,
+      },
+      {
+        style: 'font-weight=400',
+        clearMark: mark => mark.type.name === this.name,
       },
       {
         style: 'font-weight',
@@ -64,13 +93,13 @@ export const Bold = Mark.create<BoldOptions>({
   addCommands() {
     return {
       setBold: () => ({ commands }) => {
-        return commands.setMark('bold')
+        return commands.setMark(this.name)
       },
       toggleBold: () => ({ commands }) => {
-        return commands.toggleMark('bold')
+        return commands.toggleMark(this.name)
       },
       unsetBold: () => ({ commands }) => {
-        return commands.unsetMark('bold')
+        return commands.unsetMark(this.name)
       },
     }
   },
@@ -78,20 +107,33 @@ export const Bold = Mark.create<BoldOptions>({
   addKeyboardShortcuts() {
     return {
       'Mod-b': () => this.editor.commands.toggleBold(),
+      'Mod-B': () => this.editor.commands.toggleBold(),
     }
   },
 
   addInputRules() {
     return [
-      markInputRule(starInputRegex, this.type),
-      markInputRule(underscoreInputRegex, this.type),
+      markInputRule({
+        find: starInputRegex,
+        type: this.type,
+      }),
+      markInputRule({
+        find: underscoreInputRegex,
+        type: this.type,
+      }),
     ]
   },
 
   addPasteRules() {
     return [
-      markPasteRule(starPasteRegex, this.type),
-      markPasteRule(underscorePasteRegex, this.type),
+      markPasteRule({
+        find: starPasteRegex,
+        type: this.type,
+      }),
+      markPasteRule({
+        find: underscorePasteRegex,
+        type: this.type,
+      }),
     ]
   },
 })

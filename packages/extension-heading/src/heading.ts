@@ -1,34 +1,57 @@
-import { Command, Node, mergeAttributes } from '@tiptap/core'
-import { textblockTypeInputRule } from 'prosemirror-inputrules'
+import { mergeAttributes, Node, textblockTypeInputRule } from '@tiptap/core'
 
-type Level = 1 | 2 | 3 | 4 | 5 | 6
+/**
+ * The heading level options.
+ */
+export type Level = 1 | 2 | 3 | 4 | 5 | 6
 
 export interface HeadingOptions {
+  /**
+   * The available heading levels.
+   * @default [1, 2, 3, 4, 5, 6]
+   * @example [1, 2, 3]
+   */
   levels: Level[],
+
+  /**
+   * The HTML attributes for a heading node.
+   * @default {}
+   * @example { class: 'foo' }
+   */
   HTMLAttributes: Record<string, any>,
 }
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     heading: {
       /**
        * Set a heading node
+       * @param attributes The heading attributes
+       * @example editor.commands.setHeading({ level: 1 })
        */
-      setHeading: (attributes: { level: Level }) => Command,
+      setHeading: (attributes: { level: Level }) => ReturnType,
       /**
        * Toggle a heading node
+       * @param attributes The heading attributes
+       * @example editor.commands.toggleHeading({ level: 1 })
        */
-      toggleHeading: (attributes: { level: Level }) => Command,
+      toggleHeading: (attributes: { level: Level }) => ReturnType,
     }
   }
 }
 
+/**
+ * This extension allows you to create headings.
+ * @see https://www.tiptap.dev/api/nodes/heading
+ */
 export const Heading = Node.create<HeadingOptions>({
   name: 'heading',
 
-  defaultOptions: {
-    levels: [1, 2, 3, 4, 5, 6],
-    HTMLAttributes: {},
+  addOptions() {
+    return {
+      levels: [1, 2, 3, 4, 5, 6],
+      HTMLAttributes: {},
+    }
   },
 
   content: 'inline*',
@@ -70,14 +93,14 @@ export const Heading = Node.create<HeadingOptions>({
           return false
         }
 
-        return commands.setNode('heading', attributes)
+        return commands.setNode(this.name, attributes)
       },
       toggleHeading: attributes => ({ commands }) => {
         if (!this.options.levels.includes(attributes.level)) {
           return false
         }
 
-        return commands.toggleNode('heading', 'paragraph', attributes)
+        return commands.toggleNode(this.name, 'paragraph', attributes)
       },
     }
   },
@@ -93,7 +116,13 @@ export const Heading = Node.create<HeadingOptions>({
 
   addInputRules() {
     return this.options.levels.map(level => {
-      return textblockTypeInputRule(new RegExp(`^(#{1,${level}})\\s$`), this.type, { level })
+      return textblockTypeInputRule({
+        find: new RegExp(`^(#{${Math.min(...this.options.levels)},${level}})\\s$`),
+        type: this.type,
+        getAttributes: {
+          level,
+        },
+      })
     })
   },
 })

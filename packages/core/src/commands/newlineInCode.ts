@@ -1,13 +1,15 @@
-import { newlineInCode as originalNewlineInCode } from 'prosemirror-commands'
-import { Command, RawCommands } from '../types'
+import { newlineInCode as originalNewlineInCode } from '@tiptap/pm/commands'
+
+import { RawCommands } from '../types.js'
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     newlineInCode: {
       /**
        * Add a newline character in code.
+       * @example editor.commands.newlineInCode()
        */
-      newlineInCode: () => Command,
+      newlineInCode: () => ReturnType
     }
   }
 }

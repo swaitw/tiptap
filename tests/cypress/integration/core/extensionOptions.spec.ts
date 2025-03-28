@@ -1,13 +1,15 @@
 /// <reference types="cypress" />
 
-import { Extension } from '@tiptap/core/src/Extension'
+import { Extension } from '@tiptap/core'
 
 describe('extension options', () => {
   it('should set options', () => {
     const extension = Extension.create({
-      defaultOptions: {
-        foo: 1,
-        bar: 1,
+      addOptions() {
+        return {
+          foo: 1,
+          bar: 1,
+        }
       },
     })
 
@@ -20,9 +22,11 @@ describe('extension options', () => {
   it('should pass through', () => {
     const extension = Extension
       .create({
-        defaultOptions: {
-          foo: 1,
-          bar: 1,
+        addOptions() {
+          return {
+            foo: 1,
+            bar: 1,
+          }
         },
       })
       .extend()
@@ -37,9 +41,11 @@ describe('extension options', () => {
   it('should be configurable', () => {
     const extension = Extension
       .create({
-        defaultOptions: {
-          foo: 1,
-          bar: 1,
+        addOptions() {
+          return {
+            foo: 1,
+            bar: 1,
+          }
         },
       })
       .configure({
@@ -54,16 +60,20 @@ describe('extension options', () => {
 
   it('should be extendable', () => {
     const extension = Extension.create({
-      defaultOptions: {
-        foo: 1,
-        bar: 1,
+      addOptions() {
+        return {
+          foo: 1,
+          bar: 1,
+        }
       },
     })
 
     const newExtension = extension.extend({
-      defaultOptions: {
-        ...extension.options,
-        baz: 1,
+      addOptions() {
+        return {
+          ...this.parent?.(),
+          baz: 1,
+        }
       },
     })
 
@@ -74,17 +84,55 @@ describe('extension options', () => {
     })
   })
 
+  it('should be extendable multiple times', () => {
+    const extension = Extension.create({
+      addOptions() {
+        return {
+          foo: 1,
+          bar: 1,
+        }
+      },
+    }).extend({
+      addOptions() {
+        return {
+          ...this.parent?.(),
+          baz: 1,
+        }
+      },
+    })
+
+    const newExtension = extension.extend({
+      addOptions() {
+        return {
+          ...this.parent?.(),
+          bax: 1,
+        }
+      },
+    })
+
+    expect(newExtension.options).to.deep.eq({
+      foo: 1,
+      bar: 1,
+      baz: 1,
+      bax: 1,
+    })
+  })
+
   it('should be overwritable', () => {
     const extension = Extension
       .create({
-        defaultOptions: {
-          foo: 1,
-          bar: 1,
+        addOptions() {
+          return {
+            foo: 1,
+            bar: 1,
+          }
         },
       })
       .extend({
-        defaultOptions: {
-          baz: 1,
+        addOptions() {
+          return {
+            baz: 1,
+          }
         },
       })
 
@@ -99,11 +147,13 @@ describe('extension options', () => {
         foo: number[],
         HTMLAttributes: Record<string, any>,
       }>({
-        defaultOptions: {
-          foo: [1, 2, 3],
-          HTMLAttributes: {
-            class: 'foo',
-          },
+        addOptions() {
+          return {
+            foo: [1, 2, 3],
+            HTMLAttributes: {
+              class: 'foo',
+            },
+          }
         },
       })
       .configure({
@@ -122,12 +172,31 @@ describe('extension options', () => {
     })
   })
 
+  it('should configure retaining existing config', () => {
+    const extension = Extension.create({
+      name: 'parent',
+      addOptions() {
+        return {
+          foo: 1,
+          bar: 1,
+        }
+      },
+    })
+
+    const newExtension = extension
+      .configure()
+
+    expect(newExtension.config.name).to.eq('parent')
+  })
+
   it('should create its own instance on configure', () => {
     const extension = Extension
       .create({
-        defaultOptions: {
-          foo: 1,
-          bar: 2,
+        addOptions() {
+          return {
+            foo: 1,
+            bar: 2,
+          }
         },
       })
 

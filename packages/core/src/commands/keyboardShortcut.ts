@@ -1,6 +1,6 @@
-import { Command, RawCommands } from '../types'
-
-const mac = typeof navigator !== 'undefined' ? /Mac/.test(navigator.platform) : false
+import { RawCommands } from '../types.js'
+import { isiOS } from '../utilities/isiOS.js'
+import { isMacOS } from '../utilities/isMacOS.js'
 
 function normalizeKeyName(name: string) {
   const parts = name.split(/-(?!$)/)
@@ -27,7 +27,7 @@ function normalizeKeyName(name: string) {
     } else if (/^s(hift)?$/i.test(mod)) {
       shift = true
     } else if (/^mod$/i.test(mod)) {
-      if (mac) {
+      if (isiOS() || isMacOS()) {
         meta = true
       } else {
         ctrl = true
@@ -57,12 +57,14 @@ function normalizeKeyName(name: string) {
 }
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     keyboardShortcut: {
       /**
        * Trigger a keyboard shortcut.
+       * @param name The name of the keyboard shortcut.
+       * @example editor.commands.keyboardShortcut('Mod-b')
        */
-      keyboardShortcut: (name: string) => Command,
+      keyboardShortcut: (name: string) => ReturnType,
     }
   }
 }

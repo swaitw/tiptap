@@ -1,5 +1,8 @@
-import { Plugin, PluginKey } from 'prosemirror-state'
-import { Extension } from '../Extension'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
+
+import { Extension } from '../Extension.js'
+
+export const focusEventsPluginKey = new PluginKey('focusEvents')
 
 export const FocusEvents = Extension.create({
   name: 'focusEvents',
@@ -9,13 +12,10 @@ export const FocusEvents = Extension.create({
 
     return [
       new Plugin({
-        key: new PluginKey('focusEvents'),
+        key: focusEventsPluginKey,
         props: {
-          attributes: {
-            tabindex: '0',
-          },
           handleDOMEvents: {
-            focus: (view, event) => {
+            focus: (view, event: Event) => {
               editor.isFocused = true
 
               const transaction = editor.state.tr
@@ -26,7 +26,7 @@ export const FocusEvents = Extension.create({
 
               return false
             },
-            blur: (view, event) => {
+            blur: (view, event: Event) => {
               editor.isFocused = false
 
               const transaction = editor.state.tr

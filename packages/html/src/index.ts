@@ -1,2 +1,2 @@
-export { default as generateHTML } from './generateHTML'
-export { default as generateJSON } from './generateJSON'
+export * from './generateHTML.js'
+export * from './generateJSON.js'

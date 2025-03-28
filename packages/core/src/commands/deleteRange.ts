@@ -1,12 +1,14 @@
-import { Command, RawCommands, Range } from '../types'
+import { Range, RawCommands } from '../types.js'
 
 declare module '@tiptap/core' {
-  interface Commands {
+  interface Commands<ReturnType> {
     deleteRange: {
       /**
        * Delete a given range.
+       * @param range The range to delete.
+       * @example editor.commands.deleteRange({ from: 1, to: 3 })
        */
-      deleteRange: (range: Range) => Command,
+      deleteRange: (range: Range) => ReturnType,
     }
   }
 }
